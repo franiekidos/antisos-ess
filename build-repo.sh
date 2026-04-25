@@ -1,46 +1,57 @@
 #!/usr/bin/env bash
 # Script: build-repo.sh
-# Purpose: Move built packages from Ess-Build to Repo and update DB
+# Philosophy: Compile-on-Demand (The Factory Model)
 
 set -euo pipefail
 
 REPO_NAME="antisos"
-SOURCE_DIR="../antisos-ess-build/"
-TARGET_DIR="x86_64"
+SOURCE_ROOT="../antisos-ess-build"
+TARGET_DIR="$(pwd)/x86_64"
 
-# 1. Check if source exists to prevent errors
-if [ ! -d "$SOURCE_DIR" ]; then
-    echo "Error: $SOURCE_DIR not found. Build your packages first!"
-    exit 1
-fi
+mkdir -p "$TARGET_DIR"
 
-# 2. Move the packages
+# List of packages in the order they should be built (keyring first!)
+PACKAGES=("antisos-keyring" "calamares")
+
 echo "#######################################"
-echo "Moving packages from Essentials Build"
+echo "   AntisOS Factory: Starting Build     "
 echo "#######################################"
 
-# Find .zst packages and moves them. Using -f to overwrite if you rebuilt a version.
-find "$SOURCE_DIR" -type f -name "*.pkg.tar.zst*" | while read -r pkg; do
-    echo "--> Moving: $(basename "$pkg")"
-    mv -f "$pkg" "$TARGET_DIR/"
+for pkg in "${PACKAGES[@]}"; do
+    pkg_path="$SOURCE_ROOT/$pkg"
+    
+    if [ -d "$pkg_path" ]; then
+        echo "--> Entering: $pkg"
+        cd "$pkg_path"
+        
+        # -s: Install missing dependencies with pacman
+        # -c: Clean up waste files after build
+        # -f: Force rebuild even if package exists
+        makepkg -scf --noconfirm
+        
+        echo "--> Exporting binary to $TARGET_DIR"
+        mv -f *.pkg.tar.zst "$TARGET_DIR/"
+        
+        # Return to repo root
+        cd - > /dev/null
+    else
+        echo "!! Warning: Directory $pkg_path not found. Skipping."
+    fi
 done
 
-# 3. Enter the target and rebuild DB
+# --- Database Update Section ---
 cd "$TARGET_DIR"
 
-echo "--> Cleaning old database files..."
-rm -f ${REPO_NAME}*
+echo "--> Refreshing $REPO_NAME database..."
+rm -f ${REPO_NAME}.db* ${REPO_NAME}.files*
 
-echo "--> Rebuilding the database..."
-# I've removed -s (signing) for now to ensure it builds 
-# without stopping for a GPG password. Add it back when ready!
+# Add all packages found in the target dir to the DB
 repo-add -n -R ${REPO_NAME}.db.tar.gz *.pkg.tar.zst
 
-# 4. Finalize for GitHub Pages (The GitLab/GitHub Symlink Fix)
-rm -f ${REPO_NAME}.db ${REPO_NAME}.files
+# Fix for GitHub Pages (The Symlink Fix)
 mv ${REPO_NAME}.db.tar.gz ${REPO_NAME}.db
 mv ${REPO_NAME}.files.tar.gz ${REPO_NAME}.files
 
 echo "#######################################"
-echo "Success: AntisOS Repo is ready to push!"
+echo "   Build Complete & Database Updated   "
 echo "#######################################"
