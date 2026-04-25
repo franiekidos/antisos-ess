@@ -13,29 +13,31 @@ mkdir -p "$TARGET_DIR"
 # List of packages in the order they should be built (keyring first!)
 PACKAGES=("antisos-keyring" "calamares")
 
-echo "#######################################"
-echo "   AntisOS Factory: Starting Build     "
-echo "#######################################"
-
 for pkg in "${PACKAGES[@]}"; do
     pkg_path="$SOURCE_ROOT/$pkg"
     
+    echo "--> Sprawdzam pakiet: $pkg"
     if [ -d "$pkg_path" ]; then
-        echo "--> Entering: $pkg"
         cd "$pkg_path"
         
-        # -s: Install missing dependencies with pacman
-        # -c: Clean up waste files after build
-        # -f: Force rebuild even if package exists
+        # Budujemy. Jeśli makepkg zawiedzie, skrypt przerwie pracę (dzięki set -e)
+        echo "--> Kompilacja: $pkg"
         makepkg -scf --noconfirm
         
-        echo "--> Exporting binary to $TARGET_DIR"
-        mv -f *.pkg.tar.zst "$TARGET_DIR/"
+        # Sprawdzenie czy plik faktycznie powstał
+        BUILT_PKG=$(ls *.pkg.tar.zst 2>/dev/null | head -n 1)
+        if [ -n "$BUILT_PKG" ]; then
+            echo "--> Eksportuję $BUILT_PKG do $TARGET_DIR"
+            mv -f "$BUILT_PKG" "$TARGET_DIR/"
+        else
+            echo "!! BŁĄD: Nie znaleziono gotowej paczki dla $pkg!"
+            exit 1
+        fi
         
-        # Return to repo root
         cd - > /dev/null
     else
-        echo "!! Warning: Directory $pkg_path not found. Skipping."
+        echo "!! BŁĄD: Folder $pkg_path nie istnieje!"
+        exit 1
     fi
 done
 
