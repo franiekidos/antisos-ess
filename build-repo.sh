@@ -11,7 +11,7 @@ TARGET_DIR="$(pwd)/x86_64"
 mkdir -p "$TARGET_DIR"
 
 # List of packages in the order they should be built (keyring first!)
-PACKAGES=("antisos-keyring" "calamares")
+PACKAGES=("antisos-keyring" "calamares" "ckbcomp")
 
 for pkg in "${PACKAGES[@]}"; do
     pkg_path="$SOURCE_ROOT/$pkg"
