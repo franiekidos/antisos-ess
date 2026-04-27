@@ -6,7 +6,7 @@ SOURCE_ROOT="../antisos-ess-build"
 TARGET_DIR="$(pwd)/x86_64"
 
 mkdir -p "$TARGET_DIR"
-PACKAGES=("antisos-keyring" "calamares" "ckbcomp")
+PACKAGES=("antisos-keyring" "calamares" "ckbcomp" "antisos-installer")
 
 for pkg in "${PACKAGES[@]}"; do
     pkg_path="$SOURCE_ROOT/$pkg"
